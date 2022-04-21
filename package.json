@@ -1,0 +1,31 @@
+{
+  "name": "rastapi",
+  "version": "0.0.2",
+  "description": "Fast and easy-to-use API maker made for JavaScript",
+  "main": "rastapi.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "node tests/test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OguzhanUmutlu/rastapi.git"
+  },
+  "keywords": [
+    "api",
+    "rast",
+    "rest",
+    "restful",
+    "restful-api",
+    "restful-api-maker",
+    "restful-api-maker-made-easy"
+  ],
+  "author": "OguzhanUmutlu",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/OguzhanUmutlu/rastapi/issues"
+  },
+  "homepage": "https://github.com/OguzhanUmutlu/rastapi#readme"
+}
