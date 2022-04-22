@@ -116,10 +116,10 @@ class RastResponse {
         this.url = request.url;
     }
 
-    end(string) {
+    end(string, contentType = "text/json") {
         if (this._ended) return false;
         this._ended = true;
-        this._response.writeHead(200, {"Content-Type": "text/json"});
+        this._response.writeHead(200, {"Content-Type": contentType});
         this._response.end(string);
         return true;
     }
@@ -136,20 +136,63 @@ class RastResponse {
     }
 }
 
+let _icon = 0;
+
+class RastIcon {
+    constructor(data) {
+        this.data = data;
+    }
+
+    /**
+     * @param {string | Buffer | Buffer[]} data
+     * @returns {RastIcon}
+     */
+    static createFromData(data) {
+        return new RastIcon(data);
+    }
+
+    /**
+     * @param {string} url
+     * @return {Promise<RastIcon>}
+     */
+    static createFromURL(url) {
+        return new Promise(rr => (url.startsWith("http://") ? require("http") : require("https")).get(url, r => {
+            let body = "";
+            r.on("data", c => body += c);
+            r.on("end", () => rr(this.createFromData(body)));
+        }));
+    }
+}
+
+
 class RastServer {
+    /**
+     * @type {Map<string, Map<string, {type: string, cb: function}>>}
+     * @private
+     */
+    _readers = new Map();
+    /**
+     * @type {RastIcon | null}
+     * @private
+     */
+    _icon = null;
+
     constructor(http = true) {
-        /**
-         * @type {Map<string, Map<string, {type: string, cb: function}>>}
-         * @private
-         */
-        this._readers = new Map();
         /**
          * @type {Server}
          * @private
          */
         this._server = (http ? require("http") : require("https")).createServer((req, res) => {
+                if (req.url === "/favicon.ico" && req.method === "GET" && this._icon) {
+                    res.statusCode = 200;
+                    res.setHeader("Content-Length", this._icon.data.length);
+                    res.setHeader("Content-Type", "image/x-icon");
+                    res.setHeader("Cache-Control", "public, max-age=2592000");
+                    res.setHeader("Expires", new Date(Date.now() + 2592000000).toUTCString());
+                    res.end(this._icon.data);
+                    return;
+                }
                 if (!this._readers.has(req.method)) return;
-                if (req.url === "/favicon.ico") return;
                 const urls = Array.from(this._readers.get(req.method)).map(i => i[0]);
                 let vars = {};
                 const dataUrl = urls.find(i => i === req.url) || urls.find(a => {
@@ -177,12 +220,18 @@ class RastServer {
                         const res = this._readers.get(Method.GET).get(dataUrl);
                         const cb = res.cb(response, vars);
                         if (cb === undefined) return;
+                        switch (res.type) {
+                            case "file":
+                                response.file(cb);
+                                break;
+                            case "json":
+                                response.end(JSON.stringify(cb));
+                                break;
+                        }
                         if (res.type === "file") response.file(cb);
                         else response.end(JSON.stringify(typeof cb === "object" ? cb : {error: "Invalid response"}));
                     } else {
-                        if (this._readers.has("404")) {
-                            response.end(JSON.stringify(this._readers.get("404").get("*").cb(response)));
-                        }
+                        if (this._readers.has("404")) response.end(JSON.stringify(this._readers.get("404").get("*").cb(response)));
                     }
                 } else if (req.method === "POST") {
                     return; // TODO
@@ -194,8 +243,7 @@ class RastServer {
                     });
                 }
             }
-        )
-        ;
+        );
     }
 
     /**
@@ -209,6 +257,23 @@ class RastServer {
         if (this._server.listening) throw new Error("Server is already being listening!");
         if (hostname) this._server.listen(port, hostname, backlog, listeningListener);
         else return new Promise(r => this._server.listen(port, () => r()));
+    }
+
+    /*** @param {RastIcon} icon */
+    setIcon(icon) {
+        this._icon = icon;
+    }
+
+    /**
+     * @param {function} cb
+     * @param {string?} method
+     * @param {string?} url
+     */
+    read(cb, method, url) {
+        let m = method ? {method, url} : mode;
+        if (!m) throw new Error("Mode not set!");
+        if (!this._readers.has(m.method)) this._readers.set(m.method, new Map());
+        this._readers.get(m.method).set(m.url, {type: "read", cb});
     }
 
     /**
@@ -262,6 +327,8 @@ global["$rast"] = class RastGlobal {
     }
 
     static VERSION = "0.0.1";
+
+    static Icon = RastIcon;
 
     static STATUS_CODES = StatusCodes;
     static METHODS = Method;

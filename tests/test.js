@@ -20,4 +20,7 @@ server.json(() => {
     return {"message": "Not Found 🙁"};
 });
 
+$rast.Icon.createFromURL("https://i1.sndcdn.com/avatars-000389897325-h3s225-t500x500.jpg")
+    .then(img => server.setIcon(img))
+    .catch(err => console.error(err));
 server.listen().then(() => console.log("I am listening ✨"));
