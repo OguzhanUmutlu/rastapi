@@ -109,11 +109,21 @@ class StatusCodes {
 }
 
 class RastResponse {
-    constructor(request, response) {
+    constructor(request, response, query, vars) {
         this._request = request;
         this._response = response;
         this._ended = false;
+        this._vars = vars;
+        this._query = query;
         this.url = request.url;
+    }
+
+    getVariables() {
+        return this._vars;
+    }
+
+    getQuery() {
+        return this._query;
     }
 
     end(string, contentType = "text/json") {
@@ -195,10 +205,21 @@ class RastServer {
                 if (!this._readers.has(req.method)) return;
                 const urls = Array.from(this._readers.get(req.method)).map(i => i[0]);
                 let vars = {};
-                const dataUrl = urls.find(i => i === req.url) || urls.find(a => {
+                const __n = req.url.split("/")[req.url.split("/").length - 1];
+                const _n = __n ? __n.split("?")[0] : null;
+                const url = [...req.url.split("/").reverse().slice(1).reverse(), ...(_n ? [_n] : [])].join("/");
+                const _q = req.url.split("/")[req.url.split("/").length - 1].split("?").slice(1).join("?");
+                const query = {};
+                if (_q) {
+                    _q.split("&").forEach(i => {
+                        const _i = i.split("=");
+                        if (_i[0] && _i[1]) query[_i[0]] = _i.slice(1).join("=");
+                    });
+                }
+                const dataUrl = urls.find(i => i === url) || urls.find(a => {
                     vars = {};
                     const A = a.split("/").slice(1);
-                    const B = req.url.split("/").slice(1);
+                    const B = url.split("/").slice(1);
                     if (A.length !== B.length) return false;
                     let all = false;
                     for (let i = 0; i < A.length; i++) {
@@ -215,7 +236,7 @@ class RastServer {
                     return true;
                 });
                 if (req.method === "GET") {
-                    const response = new RastResponse(req, res, vars);
+                    const response = new RastResponse(req, res, query, vars);
                     if (this._readers.get(Method.GET).has(dataUrl)) {
                         const res = this._readers.get(Method.GET).get(dataUrl);
                         const cb = res.cb(response, vars);
@@ -277,7 +298,7 @@ class RastServer {
     }
 
     /**
-     * @param {function} cb
+     * @param {function(RastResponse)} cb
      * @param {string?} method
      * @param {string?} url
      */

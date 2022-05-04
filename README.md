@@ -62,8 +62,17 @@ server.file(() => "./myfile.json");
 
 ```javascript
 $rast.get("/test/:test");
-server.json((res, vars) => {
-    return {"message": "You are in /test/" + vars.test};
+server.json(res => {
+    return {"message": "You are in /test/" + res.getVariables().test};
+});
+```
+
+### Using url query
+
+```javascript
+$rast.get("/test");
+server.json(res => {
+    return {"message": "You have successfully entered!", "query": res.getQuery()};
 });
 ```
 

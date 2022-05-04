@@ -11,8 +11,8 @@ $rast.get("/test");
 server.file(() => "./tests/api.json");
 
 $rast.get("/test/:test");
-server.json((res, vars) => {
-    return {"message": "Hello World ✨ " + vars.test};
+server.json(res => {
+    return {"message": "Hello World ✨ ", variables: res.getVariables(), query: res.getQuery()};
 });
 
 $rast.notFound();
